@@ -114,7 +114,11 @@
           { value: 'exciting', label: 'ワクワク', emoji: '🎉' },
           { value: 'calm', label: 'しっとり', emoji: '🌙' },
           { value: 'thrilling', label: 'ハラハラ', emoji: '😱' },
-          { value: 'funny', label: '笑いたい', emoji: '😂' }
+          { value: 'funny', label: '笑いたい', emoji: '😂' },
+          { value: 'crying', label: '泣きたい', emoji: '😭' },
+          { value: 'inspiring', label: 'エモい', emoji: '✨' },
+          { value: 'relaxing', label: 'まったり', emoji: '☕' },
+          { value: 'thinking', label: '考えたい', emoji: '🤔' }
         ]},
         { id: 'setting', question: '舞台は？', icon: '🌎', options: [
           { value: 'modern', label: '現代', emoji: '🏙️' },
@@ -177,8 +181,9 @@
           }
           
           // 条件緩和通知
-          if (data.fallback) {
-            alert(`📢 お知らせ\n\n${data.fallbackReason}\n\nあなたにおすすめの映画を見つけました！`);
+          if (data.fallbackLog && data.fallbackLog.length > 0) {
+            const relaxedConditions = data.fallbackLog.join('\n• ');
+            alert(`📢 条件を調整しました\n\n以下の条件を緩和しました：\n• ${relaxedConditions}\n\nあなたにおすすめの映画を見つけました！`);
           }
           
           const today = new Date().toDateString();
