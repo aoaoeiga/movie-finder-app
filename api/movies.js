@@ -48,6 +48,7 @@ async function getMoviesByGenre(genreId, lang, page) {
   try {
     const url = `${TMDB_BASE_URL}/discover/movie?api_key=${TMDB_API_KEY}&language=${lang}&with_genres=${genreId}&page=${page}&include_adult=false&sort_by=popularity.desc`;
     const response = await fetch(url);
+    if (!response.ok) throw new Error('API request failed');
     const data = await response.json();
     return data.results || [];
   } catch (error) {
@@ -60,6 +61,7 @@ async function getPopularMovies(lang, page) {
   try {
     const url = `${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=${lang}&page=${page}`;
     const response = await fetch(url);
+    if (!response.ok) throw new Error('API request failed');
     const data = await response.json();
     return data.results || [];
   } catch (error) {
@@ -72,6 +74,7 @@ async function getTopRatedMovies(lang, page) {
   try {
     const url = `${TMDB_BASE_URL}/movie/top_rated?api_key=${TMDB_API_KEY}&language=${lang}&page=${page}`;
     const response = await fetch(url);
+    if (!response.ok) throw new Error('API request failed');
     const data = await response.json();
     return data.results || [];
   } catch (error) {
@@ -84,6 +87,7 @@ async function getMovieDetails(movieId, lang) {
   try {
     const url = `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=${lang}`;
     const response = await fetch(url);
+    if (!response.ok) throw new Error('API request failed');
     return await response.json();
   } catch (error) {
     console.error('Error fetching movie details:', error);
@@ -92,12 +96,28 @@ async function getMovieDetails(movieId, lang) {
 }
 
 const genreMap = {
-  action: 28, adventure: 12, animation: 16, comedy: 35,
-  crime: 80, drama: 18, family: 10751, fantasy: 14,
-  horror: 27, mystery: 9648, romance: 10749, scifi: 878, thriller: 53
+  action: 28,
+  adventure: 12,
+  animation: 16,
+  comedy: 35,
+  crime: 80,
+  drama: 18,
+  family: 10751,
+  fantasy: 14,
+  horror: 27,
+  mystery: 9648,
+  romance: 10749,
+  scifi: 878,
+  thriller: 53
 };
 
-const langMap = { ja: 'ja', en: 'en', ko: 'ko', zh: 'zh', any: 'ja' };
+const langMap = {
+  ja: 'ja',
+  en: 'en',
+  ko: 'ko',
+  zh: 'zh',
+  any: 'ja'
+};
 
 const mbtiGenreMap = {
   INTJ: [878, 9648, 53],
@@ -119,168 +139,145 @@ const mbtiGenreMap = {
   unknown: []
 };
 
-async function findMovieFromAnswers(answers) {
-  // 絶対に外さない3つの条件
-  const genre = answers.genre || 'action';              // ジャンル（絶対固定）
-  const language = langMap[answers.language] || 'ja';   // 言語（絶対固定）
-  const type = answers.type || 'any';                   // アニメ実写（絶対固定）
+function filterByType(movies, type) {
+  if (!type || type === 'any' || !Array.isArray(movies)) {
+    return movies;
+  }
   
-  // その他の条件（緩和可能）
+  return movies.filter(movie => {
+    if (!movie.genre_ids || !Array.isArray(movie.genre_ids)) {
+      return type === 'live';
+    }
+    const isAnimation = movie.genre_ids.includes(16);
+    return type === 'anime' ? isAnimation : !isAnimation;
+  });
+}
+
+function filterByDecade(movies, decade) {
+  if (!decade || decade === 'any' || !Array.isArray(movies)) {
+    return movies;
+  }
+  
+  return movies.filter(movie => {
+    if (!movie.release_date) return false;
+    try {
+      const year = new Date(movie.release_date).getFullYear();
+      if (decade === '1990s') return year < 2000;
+      if (decade === '2000s') return year >= 2000 && year < 2010;
+      if (decade === '2010s') return year >= 2010 && year < 2020;
+      if (decade === '2020s') return year >= 2020;
+      return true;
+    } catch (e) {
+      return false;
+    }
+  });
+}
+
+async function findMovieFromAnswers(answers) {
+  const genre = answers.genre || 'action';
+  const language = langMap[answers.language] || 'ja';
+  const type = answers.type || 'any';
   const award = answers.award || 'any';
   const decade = answers.decade || 'any';
   const mbti = answers.mbti || 'unknown';
   
   let fallbackLog = [];
-  let movies = [];
+  const MIN_MOVIES = 3;
   
   try {
     // ジャンル決定（MBTI考慮）
     let genreId = genreMap[genre];
     let usedMbti = false;
     
-    if (mbti && mbti !== 'unknown' && mbtiGenreMap[mbti]) {
+    if (mbti !== 'unknown' && mbtiGenreMap[mbti] && Math.random() > 0.5) {
       const mbtiGenres = mbtiGenreMap[mbti];
-      const randomMbtiGenre = mbtiGenres[Math.floor(Math.random() * mbtiGenres.length)];
-      if (Math.random() > 0.5) {
-        genreId = randomMbtiGenre;
-        usedMbti = true;
-      }
+      genreId = mbtiGenres[Math.floor(Math.random() * mbtiGenres.length)];
+      usedMbti = true;
     }
     
-    // 基本映画取得（言語とジャンルは固定）
-    if (genreId) {
-      const page = Math.floor(Math.random() * 3) + 1;
-      movies = await getMoviesByGenre(genreId, language, page);
+    // 基本映画取得（言語とジャンルで検索）
+    const page = Math.floor(Math.random() * 3) + 1;
+    let movies = await getMoviesByGenre(genreId, language, page);
+    
+    if (!movies || movies.length === 0) {
+      movies = await getPopularMovies(language, 1);
     }
     
     // アニメ実写フィルター（絶対固定）
-    if (type !== 'any' && movies.length > 0) {
-      movies = movies.filter(movie => {
-        const hasAnimeGenre = movie.genre_ids && movie.genre_ids.includes(16);
-        if (type === 'anime') return hasAnimeGenre;
-        if (type === 'live') return !hasAnimeGenre;
-        return true;
-      });
-    }
+    let filtered = filterByType(movies, type);
     
     // 受賞作品追加
-    let useAward = award !== 'any';
-    if (useAward) {
-      if (award === 'award') {
-        const topRated = await getTopRatedMovies(language, 1);
-        const filteredTopRated = type !== 'any' ? topRated.filter(movie => {
-          const hasAnimeGenre = movie.genre_ids && movie.genre_ids.includes(16);
-          if (type === 'anime') return hasAnimeGenre;
-          if (type === 'live') return !hasAnimeGenre;
-          return true;
-        }) : topRated;
-        movies = [...filteredTopRated, ...movies];
-      } else if (award === 'popular') {
-        const popular = await getPopularMovies(language, 1);
-        const filteredPopular = type !== 'any' ? popular.filter(movie => {
-          const hasAnimeGenre = movie.genre_ids && movie.genre_ids.includes(16);
-          if (type === 'anime') return hasAnimeGenre;
-          if (type === 'live') return !hasAnimeGenre;
-          return true;
-        }) : popular;
-        movies = [...filteredPopular, ...movies];
-      }
+    if (award === 'award') {
+      const topRated = await getTopRatedMovies(language, 1);
+      const topFiltered = filterByType(topRated, type);
+      filtered = [...topFiltered, ...filtered];
+    } else if (award === 'popular') {
+      const popular = await getPopularMovies(language, 1);
+      const popFiltered = filterByType(popular, type);
+      filtered = [...popFiltered, ...filtered];
     }
     
-    let filteredMovies = movies;
-    const MIN_MOVIES = 5;
-    
-    // レベル1: 年代フィルター（緩和可能）
-    let useDecade = decade !== 'any';
-    if (useDecade && movies.length > 0) {
-      const tempFiltered = filteredMovies.filter(movie => {
-        if (!movie.release_date) return false;
-        const year = new Date(movie.release_date).getFullYear();
-        if (decade === '1990s') return year < 2000;
-        if (decade === '2000s') return year >= 2000 && year < 2010;
-        if (decade === '2010s') return year >= 2010 && year < 2020;
-        if (decade === '2020s') return year >= 2020;
-        return true;
-      });
-      
-      if (tempFiltered.length < MIN_MOVIES) {
-        fallbackLog.push('年代条件');
-        useDecade = false;
-      } else {
-        filteredMovies = tempFiltered;
-      }
+    // 年代フィルター（緩和可能）
+    let withDecade = filterByDecade(filtered, decade);
+    if (withDecade.length >= MIN_MOVIES) {
+      filtered = withDecade;
+    } else if (decade !== 'any') {
+      fallbackLog.push('年代条件');
     }
     
-    // レベル2: MBTI条件を緩和
-    if (filteredMovies.length < MIN_MOVIES && usedMbti) {
+    // MBTI条件緩和
+    if (filtered.length < MIN_MOVIES && usedMbti) {
       fallbackLog.push('MBTI推奨条件');
       genreId = genreMap[genre];
-      const page = Math.floor(Math.random() * 3) + 1;
       movies = await getMoviesByGenre(genreId, language, page);
+      filtered = filterByType(movies, type);
       
-      if (type !== 'any') {
-        movies = movies.filter(movie => {
-          const hasAnimeGenre = movie.genre_ids && movie.genre_ids.includes(16);
-          if (type === 'anime') return hasAnimeGenre;
-          if (type === 'live') return !hasAnimeGenre;
-          return true;
-        });
+      withDecade = filterByDecade(filtered, decade);
+      if (withDecade.length >= MIN_MOVIES) {
+        filtered = withDecade;
       }
-      
-      filteredMovies = movies;
     }
     
-    // レベル3: 受賞作品条件を緩和
-    if (filteredMovies.length < MIN_MOVIES && useAward) {
+    // 受賞作品条件緩和
+    if (filtered.length < MIN_MOVIES && award !== 'any') {
       fallbackLog.push('受賞作品条件');
-      filteredMovies = movies;
     }
     
     // ソート
-    if (filteredMovies.length > 0) {
-      if (award === 'hidden') {
-        filteredMovies.sort((a, b) => a.popularity - b.popularity);
-      } else {
-        filteredMovies.sort((a, b) => b.popularity - a.popularity);
-      }
+    if (award === 'hidden') {
+      filtered.sort((a, b) => (a.popularity || 0) - (b.popularity || 0));
+    } else {
+      filtered.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
     }
     
     // ランダム選択
-    const topMovies = filteredMovies.slice(0, 20);
     let selectedMovie = null;
-    
-    if (topMovies.length > 0) {
-      selectedMovie = topMovies[Math.floor(Math.random() * Math.min(topMovies.length, 10))];
+    if (filtered.length > 0) {
+      const topMovies = filtered.slice(0, Math.min(20, filtered.length));
+      const randomIndex = Math.floor(Math.random() * Math.min(topMovies.length, 10));
+      selectedMovie = topMovies[randomIndex];
     }
     
-    // 最終フォールバック（言語・アニメ実写・ジャンルは維持）
+    // 最終フォールバック（言語・ジャンル・アニメ実写固定）
     if (!selectedMovie) {
       fallbackLog.push('その他の条件');
-      const popular = await getPopularMovies(language, 1);
-      let filtered = popular;
+      const fallbackMovies = await getPopularMovies(language, 1);
+      let fallbackFiltered = filterByType(fallbackMovies, type);
       
-      // アニメ実写フィルター維持
-      if (type !== 'any') {
-        filtered = filtered.filter(movie => {
-          const hasAnimeGenre = movie.genre_ids && movie.genre_ids.includes(16);
-          if (type === 'anime') return hasAnimeGenre;
-          if (type === 'live') return !hasAnimeGenre;
-          return true;
-        });
-      }
-      
-      // ジャンルフィルター維持
+      // ジャンルで絞る
       if (genreId) {
-        filtered = filtered.filter(movie => {
-          return movie.genre_ids && movie.genre_ids.includes(genreId);
-        });
+        const genreFiltered = fallbackFiltered.filter(m => 
+          m.genre_ids && m.genre_ids.includes(genreId)
+        );
+        if (genreFiltered.length > 0) {
+          fallbackFiltered = genreFiltered;
+        }
       }
       
-      if (filtered.length > 0) {
-        selectedMovie = filtered[Math.floor(Math.random() * filtered.length)];
-      } else {
-        // それでもない場合は人気映画から
-        selectedMovie = popular[0];
+      if (fallbackFiltered.length > 0) {
+        selectedMovie = fallbackFiltered[0];
+      } else if (fallbackMovies.length > 0) {
+        selectedMovie = fallbackMovies[0];
       }
     }
     
@@ -291,11 +288,18 @@ async function findMovieFromAnswers(answers) {
     
   } catch (error) {
     console.error('Error in findMovieFromAnswers:', error);
-    const popular = await getPopularMovies(language, 1);
-    return {
-      movie: popular[0] || null,
-      fallbackLog: ['エラーが発生しました']
-    };
+    try {
+      const emergencyMovies = await getPopularMovies('ja', 1);
+      return {
+        movie: emergencyMovies[0] || null,
+        fallbackLog: ['エラーが発生しました']
+      };
+    } catch (e) {
+      return {
+        movie: null,
+        fallbackLog: ['エラーが発生しました']
+      };
+    }
   }
 }
 
@@ -347,8 +351,8 @@ export default async function handler(req, res) {
     
     const result = await findMovieFromAnswers(answers);
     
-    if (!result.movie) {
-      return res.status(404).json({ error: '映画が見つかりません' });
+    if (!result || !result.movie) {
+      return res.status(404).json({ error: '映画が見つかりませんでした' });
     }
     
     const language = langMap[answers.language] || 'ja';
@@ -356,103 +360,22 @@ export default async function handler(req, res) {
     const movieData = formatMovieData(result.movie, details);
     
     if (!movieData) {
-      return res.status(404).json({ error: '映画データの取得に失敗しました' });
+      return res.status(500).json({ error: '映画データの処理に失敗しました' });
     }
     
     incrementCount(clientIP);
     
     return res.status(200).json({
       ...movieData,
-      fallbackLog: result.fallbackLog,
+      fallbackLog: result.fallbackLog || [],
       remainingCount: DAILY_LIMIT - (rateLimit.count + 1)
     });
     
   } catch (error) {
-    console.error('API Error:', error);
+    console.error('API Handler Error:', error);
     return res.status(500).json({ 
-      error: 'サーバーエラー',
+      error: 'サーバーエラーが発生しました',
       message: error.message 
     });
   }
 }
-```
-
----
-
-# 🚀 デプロイ手順
-
-## 1. index.html をコミット
-```
-Commit message: ✨ 言語・アニメ実写・ジャンル固定版
-```
-
-## 2. api/movies.js をコミット
-```
-Commit message: 🔒 言語・アニメ実写・ジャンル絶対固定
-```
-
-## 3. Vercel自動デプロイ（1-2分待つ）
-
----
-
-# ✅ 実装内容
-
-## 絶対に緩和されない条件（死守）
-```
-✅ 言語（日本語/英語/韓国語）
-✅ アニメ実写（アニメ/実写/どちらでも）
-✅ ジャンル（アクション/コメディ/ホラーなど）
-```
-
-## 緩和される条件（優先度順）
-```
-1. 年代条件
-2. MBTI推奨条件
-3. 受賞作品条件
-4. その他の条件
-```
-
----
-
-# 📊 緩和ロジックの流れ
-```
-ステップ1: 全条件で検索
-├─ 言語: ✅ 固定
-├─ アニメ実写: ✅ 固定
-├─ ジャンル: ✅ 固定
-├─ 年代: ✅ 適用
-├─ MBTI: ✅ 適用
-└─ 受賞作品: ✅ 適用
-
-↓ 5件未満
-
-ステップ2: 年代条件を緩和
-├─ 言語: ✅ 固定
-├─ アニメ実写: ✅ 固定
-├─ ジャンル: ✅ 固定
-├─ 年代: ❌ 緩和
-├─ MBTI: ✅ 適用
-└─ 受賞作品: ✅ 適用
-
-↓ 5件未満
-
-ステップ3: MBTI条件を緩和
-├─ 言語: ✅ 固定
-├─ アニメ実写: ✅ 固定
-├─ ジャンル: ✅ 固定
-├─ 年代: ❌ 緩和
-├─ MBTI: ❌ 緩和
-└─ 受賞作品: ✅ 適用
-
-↓ 5件未満
-
-ステップ4: 受賞作品条件を緩和
-├─ 言語: ✅ 固定
-├─ アニメ実写: ✅ 固定
-├─ ジャンル: ✅ 固定
-└─ その他: ❌ 緩和
-
-最終: 人気映画から選択
-├─ 言語: ✅ 固定
-├─ アニメ実写: ✅ 固定
-└─ ジャンル: ✅ 固定
