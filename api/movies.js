@@ -119,24 +119,33 @@ const langMap = {
   any: 'ja'
 };
 
-const mbtiGenreMap = {
-  INTJ: [878, 9648, 53],
-  INTP: [878, 9648, 14],
-  ENTJ: [80, 36, 53],
-  ENTP: [35, 12, 878],
-  INFJ: [18, 10749, 14],
-  INFP: [10749, 14, 10402],
-  ENFJ: [18, 10749, 10751],
-  ENFP: [35, 10749, 12],
-  ISTJ: [36, 18, 80],
-  ISFJ: [10751, 10749, 18],
-  ESTJ: [28, 80, 36],
-  ESFJ: [10749, 35, 10751],
-  ISTP: [28, 53, 878],
-  ISFP: [10402, 10749, 18],
-  ESTP: [28, 12, 80],
-  ESFP: [35, 10402, 10749],
-  unknown: []
+// 新しいMBTI選考基準（ジャンルは変えない）
+const mbtiPreferences = {
+  // 分析家グループ (NT) - 高評価・複雑さ重視
+  INTJ: { minRating: 7.0, preferHidden: true, sortBy: 'rating' },      // 高評価・複雑
+  INTP: { minRating: 7.0, preferHidden: true, sortBy: 'rating' },      // 高評価・独特
+  ENTJ: { minRating: 6.5, preferHidden: false, sortBy: 'popularity' }, // 人気・高評価
+  ENTP: { minRating: 6.5, preferHidden: true, sortBy: 'mixed' },       // ユニーク
+  
+  // 外交官グループ (NF) - 感動・美しさ重視
+  INFJ: { minRating: 7.5, preferHidden: false, sortBy: 'rating' },     // 超高評価・感動
+  INFP: { minRating: 7.5, preferHidden: true, sortBy: 'rating' },      // 超高評価・美しい
+  ENFJ: { minRating: 7.0, preferHidden: false, sortBy: 'mixed' },      // バランス型
+  ENFP: { minRating: 6.5, preferHidden: false, sortBy: 'popularity' }, // 人気・楽しい
+  
+  // 番人グループ (SJ) - 安定・実績重視
+  ISTJ: { minRating: 6.5, preferHidden: false, sortBy: 'rating' },     // 安定・王道
+  ISFJ: { minRating: 6.5, preferHidden: false, sortBy: 'popularity' }, // 人気・温かい
+  ESTJ: { minRating: 6.5, preferHidden: false, sortBy: 'popularity' }, // 人気・実績
+  ESFJ: { minRating: 6.5, preferHidden: false, sortBy: 'popularity' }, // 大衆人気
+  
+  // 探検家グループ (SP) - エンタメ・刺激重視
+  ISTP: { minRating: 6.5, preferHidden: false, sortBy: 'rating' },     // 技術的
+  ISFP: { minRating: 7.0, preferHidden: true, sortBy: 'rating' },      // 美しい・感性的
+  ESTP: { minRating: 6.0, preferHidden: false, sortBy: 'popularity' }, // 人気・刺激的
+  ESFP: { minRating: 6.0, preferHidden: false, sortBy: 'popularity' }, // 超人気・楽しい
+  
+  unknown: { minRating: 6.0, preferHidden: false, sortBy: 'mixed' }
 };
 
 function filterByType(movies, type) {
@@ -173,6 +182,54 @@ function filterByDecade(movies, decade) {
   });
 }
 
+function filterByMBTI(movies, mbti) {
+  if (!mbti || mbti === 'unknown' || !Array.isArray(movies) || movies.length === 0) {
+    return movies;
+  }
+  
+  const pref = mbtiPreferences[mbti] || mbtiPreferences.unknown;
+  
+  // 評価フィルター
+  const filtered = movies.filter(movie => {
+    const rating = movie.vote_average || 0;
+    return rating >= pref.minRating;
+  });
+  
+  // 結果が少なすぎる場合は元のリストを返す
+  if (filtered.length < 3) {
+    return movies;
+  }
+  
+  return filtered;
+}
+
+function sortByMBTI(movies, mbti, award) {
+  if (!Array.isArray(movies) || movies.length === 0) {
+    return movies;
+  }
+  
+  const pref = mbtiPreferences[mbti] || mbtiPreferences.unknown;
+  
+  // award設定が優先
+  if (award === 'hidden' || (award === 'any' && pref.preferHidden)) {
+    return movies.sort((a, b) => (a.popularity || 0) - (b.popularity || 0));
+  }
+  
+  // ソート方法
+  if (pref.sortBy === 'rating') {
+    return movies.sort((a, b) => (b.vote_average || 0) - (a.vote_average || 0));
+  } else if (pref.sortBy === 'popularity') {
+    return movies.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+  } else {
+    // mixed: 評価と人気のバランス
+    return movies.sort((a, b) => {
+      const scoreA = (a.vote_average || 0) * 0.5 + (a.popularity || 0) * 0.01;
+      const scoreB = (b.vote_average || 0) * 0.5 + (b.popularity || 0) * 0.01;
+      return scoreB - scoreA;
+    });
+  }
+}
+
 async function findMovieFromAnswers(answers) {
   const genre = answers.genre || 'action';
   const language = langMap[answers.language] || 'ja';
@@ -185,15 +242,8 @@ async function findMovieFromAnswers(answers) {
   const MIN_MOVIES = 3;
   
   try {
-    // ジャンル決定（MBTI考慮）
-    let genreId = genreMap[genre];
-    let usedMbti = false;
-    
-    if (mbti !== 'unknown' && mbtiGenreMap[mbti] && Math.random() > 0.5) {
-      const mbtiGenres = mbtiGenreMap[mbti];
-      genreId = mbtiGenres[Math.floor(Math.random() * mbtiGenres.length)];
-      usedMbti = true;
-    }
+    // ジャンル決定（ユーザー選択を絶対優先）
+    const genreId = genreMap[genre];
     
     // 基本映画取得（言語とジャンルで検索）
     const page = Math.floor(Math.random() * 3) + 1;
@@ -225,17 +275,12 @@ async function findMovieFromAnswers(answers) {
       fallbackLog.push('年代条件');
     }
     
-    // MBTI条件緩和
-    if (filtered.length < MIN_MOVIES && usedMbti) {
-      fallbackLog.push('MBTI推奨条件');
-      genreId = genreMap[genre];
-      movies = await getMoviesByGenre(genreId, language, page);
-      filtered = filterByType(movies, type);
-      
-      withDecade = filterByDecade(filtered, decade);
-      if (withDecade.length >= MIN_MOVIES) {
-        filtered = withDecade;
-      }
+    // MBTIフィルター（評価基準で絞る）
+    let withMBTI = filterByMBTI(filtered, mbti);
+    if (withMBTI.length >= MIN_MOVIES) {
+      filtered = withMBTI;
+    } else if (mbti !== 'unknown') {
+      fallbackLog.push('MBTI評価基準');
     }
     
     // 受賞作品条件緩和
@@ -243,12 +288,8 @@ async function findMovieFromAnswers(answers) {
       fallbackLog.push('受賞作品条件');
     }
     
-    // ソート
-    if (award === 'hidden') {
-      filtered.sort((a, b) => (a.popularity || 0) - (b.popularity || 0));
-    } else {
-      filtered.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-    }
+    // MBTIに基づいたソート
+    filtered = sortByMBTI(filtered, mbti, award);
     
     // ランダム選択
     let selectedMovie = null;
@@ -379,3 +420,68 @@ export default async function handler(req, res) {
     });
   }
 }
+```
+
+---
+
+# 🎯 新しいMBTI選考基準の動作
+
+## 例1: ホラー + INTJ
+```
+ユーザー選択: ホラー
+MBTI: INTJ（建築家）
+
+動作:
+1. ホラージャンルで検索 ✅
+2. 評価7.0以上の作品に絞る ✅
+3. 評価の高い順にソート ✅
+4. → 高評価の心理ホラーが選ばれる
+```
+
+## 例2: コメディ + ESFP
+```
+ユーザー選択: コメディ
+MBTI: ESFP（エンターテイナー）
+
+動作:
+1. コメディジャンルで検索 ✅
+2. 評価6.0以上（緩め）に絞る ✅
+3. 人気の高い順にソート ✅
+4. → 超人気のコメディが選ばれる
+```
+
+## 例3: SF + INFP
+```
+ユーザー選択: SF
+MBTI: INFP（仲介者）
+
+動作:
+1. SFジャンルで検索 ✅
+2. 評価7.5以上（超高評価）に絞る ✅
+3. 評価の高い順にソート ✅
+4. → 美しい映像のSF映画が選ばれる
+```
+
+---
+
+# 📊 改善点まとめ
+
+## ✅ 修正前の問題
+```
+❌ MBTIでジャンルが変わる
+❌ ユーザーの選択が無視される
+❌ ホラー選んだのにロマンスが出る
+```
+
+## ✅ 修正後
+```
+✅ ジャンルは絶対にユーザー選択
+✅ MBTIは評価基準とソート順に影響
+✅ ホラー選んだら必ずホラーが出る
+```
+
+---
+
+# 🚀 デプロイ
+```
+Commit message: 🧠 MBTI選考基準改善（ジャンル矛盾解消）
