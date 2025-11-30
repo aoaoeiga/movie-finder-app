@@ -79,7 +79,6 @@ const genreMap = {
 
 const langMap = { ja: 'ja', en: 'en', ko: 'ko', zh: 'zh', any: 'ja' };
 
-// MBTI別おすすめジャンル
 const mbtiGenreMap = {
   INTJ: [878, 9648, 53],      // SF, ミステリー, スリラー
   INTP: [878, 9648, 14],      // SF, ミステリー, ファンタジー
@@ -108,8 +107,7 @@ async function findMovieFromAnswers(answers) {
   const mbti = answers.mbti || 'unknown';
   
   let movies = [];
-  let fallback = false;
-  let fallbackReason = '';
+  let fallbackLog = [];
   
   // MBTI考慮したジャンル選択
   let genreId = genreMap[genre];
@@ -136,10 +134,15 @@ async function findMovieFromAnswers(answers) {
     movies = [...popular, ...movies];
   }
   
-  // 年代フィルター（条件緩和対応）
+  // 段階的条件緩和システム
+  // 優先順位: 今の気分 → 誰と見る → 舞台 → 視聴時間 → 何年代 → どんな作品 → MBTI → ジャンル → 言語 → アニメ実写
+  
   let filteredMovies = movies;
-  if (decade !== 'any' && movies.length > 0) {
-    filteredMovies = movies.filter(movie => {
+  let originalCount = movies.length;
+  
+  // レベル5: 年代フィルター
+  if (decade !== 'any' && filteredMovies.length > 0) {
+    const tempFiltered = filteredMovies.filter(movie => {
       if (!movie.release_date) return false;
       const year = new Date(movie.release_date).getFullYear();
       if (decade === '1990s') return year < 2000;
@@ -149,39 +152,40 @@ async function findMovieFromAnswers(answers) {
       return true;
     });
     
-    // 0件なら条件緩和
-    if (filteredMovies.length === 0) {
-      fallback = true;
-      fallbackReason = '指定年代の映画が見つからなかったため、他の年代からも選びました';
-      filteredMovies = movies;
+    if (tempFiltered.length === 0) {
+      fallbackLog.push('年代条件（他の年代からも選択）');
+    } else {
+      filteredMovies = tempFiltered;
     }
   }
   
-  movies = filteredMovies;
+  // 最低10件確保
+  if (filteredMovies.length < 10) {
+    fallbackLog.push('条件の一部（より多くの候補から選択）');
+    filteredMovies = movies;
+  }
   
   // ソート
   if (award === 'hidden') {
-    movies.sort((a, b) => a.popularity - b.popularity);
+    filteredMovies.sort((a, b) => a.popularity - b.popularity);
   } else {
-    movies.sort((a, b) => b.popularity - a.popularity);
+    filteredMovies.sort((a, b) => b.popularity - a.popularity);
   }
   
   // ランダム選択
-  const topMovies = movies.slice(0, 20);
+  const topMovies = filteredMovies.slice(0, 20);
   let selectedMovie = topMovies[Math.floor(Math.random() * Math.min(topMovies.length, 10))];
   
   // 最終フォールバック
   if (!selectedMovie) {
-    fallback = true;
-    fallbackReason = '条件に合う映画が見つからなかったため、人気映画から選びました';
+    fallbackLog.push('すべての条件（人気映画から選択）');
     const popular = await getPopularMovies(language, 1);
     selectedMovie = popular[Math.floor(Math.random() * popular.length)];
   }
   
   return {
     movie: selectedMovie,
-    fallback: fallback,
-    fallbackReason: fallbackReason
+    fallbackLog: fallbackLog
   };
 }
 
@@ -232,8 +236,7 @@ export default async function handler(req, res) {
     
     return res.status(200).json({
       ...movieData,
-      fallback: result.fallback,
-      fallbackReason: result.fallbackReason,
+      fallbackLog: result.fallbackLog,
       remainingCount: DAILY_LIMIT - (rateLimit.count + 1)
     });
     
@@ -245,61 +248,3 @@ export default async function handler(req, res) {
     });
   }
 }
-```
-
----
-
-# 🚀 ステップ3: GitHubでコミット
-
-## 3-1. index.html をコミット
-
-1. **GitHubで `index.html` を開く**
-2. **編集ボタン（鉛筆マーク）をクリック**
-3. **全部削除**
-4. **上記のコードを貼り付け**
-5. **一番下までスクロール**
-6. **Commit message:**
-```
-   ✨ MBTI追加 + 条件緩和 + 通知機能
-```
-7. **「Commit changes」をクリック**
-
----
-
-## 3-2. api/movies.js をコミット
-
-1. **GitHubで `api/movies.js` を開く**
-2. **編集ボタン（鉛筆マーク）をクリック**
-3. **全部削除**
-4. **上記のコードを貼り付け**
-5. **Commit message:**
-```
-   🧠 MBTI対応 + フォールバック改善
-```
-6. **「Commit changes」をクリック**
-
----
-
-# ✅ ステップ4: Vercel自動デプロイ
-
-GitHubにコミットすると**自動的に**Vercelがデプロイ開始！
-
-### 確認方法
-
-1. **Vercelダッシュボードにアクセス**
-```
-   https://vercel.com/dashboard
-```
-
-2. **プロジェクトをクリック**
-
-3. **「Deployments」タブを見る**
-   - Building... → Ready になるまで待つ（1-2分）
-
----
-
-# 🧪 ステップ5: 動作確認
-
-デプロイ完了後、URLにアクセス：
-```
-https://movie-finder-app.vercel.app/
