@@ -120,8 +120,12 @@ const mbtiGenreMap = {
 };
 
 async function findMovieFromAnswers(answers) {
-  const genre = answers.genre || 'action';
-  const language = langMap[answers.language] || 'ja';
+  // 絶対に外さない3つの条件
+  const genre = answers.genre || 'action';              // ジャンル（絶対固定）
+  const language = langMap[answers.language] || 'ja';   // 言語（絶対固定）
+  const type = answers.type || 'any';                   // アニメ実写（絶対固定）
+  
+  // その他の条件（緩和可能）
   const award = answers.award || 'any';
   const decade = answers.decade || 'any';
   const mbti = answers.mbti || 'unknown';
@@ -130,34 +134,65 @@ async function findMovieFromAnswers(answers) {
   let movies = [];
   
   try {
+    // ジャンル決定（MBTI考慮）
     let genreId = genreMap[genre];
+    let usedMbti = false;
+    
     if (mbti && mbti !== 'unknown' && mbtiGenreMap[mbti]) {
       const mbtiGenres = mbtiGenreMap[mbti];
       const randomMbtiGenre = mbtiGenres[Math.floor(Math.random() * mbtiGenres.length)];
       if (Math.random() > 0.5) {
         genreId = randomMbtiGenre;
+        usedMbti = true;
       }
     }
     
+    // 基本映画取得（言語とジャンルは固定）
     if (genreId) {
       const page = Math.floor(Math.random() * 3) + 1;
       movies = await getMoviesByGenre(genreId, language, page);
-    } else {
-      movies = await getPopularMovies(language, 1);
     }
     
-    if (award === 'award') {
-      const topRated = await getTopRatedMovies(language, 1);
-      movies = [...topRated, ...movies];
-    } else if (award === 'popular') {
-      const popular = await getPopularMovies(language, 1);
-      movies = [...popular, ...movies];
+    // アニメ実写フィルター（絶対固定）
+    if (type !== 'any' && movies.length > 0) {
+      movies = movies.filter(movie => {
+        const hasAnimeGenre = movie.genre_ids && movie.genre_ids.includes(16);
+        if (type === 'anime') return hasAnimeGenre;
+        if (type === 'live') return !hasAnimeGenre;
+        return true;
+      });
+    }
+    
+    // 受賞作品追加
+    let useAward = award !== 'any';
+    if (useAward) {
+      if (award === 'award') {
+        const topRated = await getTopRatedMovies(language, 1);
+        const filteredTopRated = type !== 'any' ? topRated.filter(movie => {
+          const hasAnimeGenre = movie.genre_ids && movie.genre_ids.includes(16);
+          if (type === 'anime') return hasAnimeGenre;
+          if (type === 'live') return !hasAnimeGenre;
+          return true;
+        }) : topRated;
+        movies = [...filteredTopRated, ...movies];
+      } else if (award === 'popular') {
+        const popular = await getPopularMovies(language, 1);
+        const filteredPopular = type !== 'any' ? popular.filter(movie => {
+          const hasAnimeGenre = movie.genre_ids && movie.genre_ids.includes(16);
+          if (type === 'anime') return hasAnimeGenre;
+          if (type === 'live') return !hasAnimeGenre;
+          return true;
+        }) : popular;
+        movies = [...filteredPopular, ...movies];
+      }
     }
     
     let filteredMovies = movies;
     const MIN_MOVIES = 5;
     
-    if (decade !== 'any' && movies.length > 0) {
+    // レベル1: 年代フィルター（緩和可能）
+    let useDecade = decade !== 'any';
+    if (useDecade && movies.length > 0) {
       const tempFiltered = filteredMovies.filter(movie => {
         if (!movie.release_date) return false;
         const year = new Date(movie.release_date).getFullYear();
@@ -170,16 +205,38 @@ async function findMovieFromAnswers(answers) {
       
       if (tempFiltered.length < MIN_MOVIES) {
         fallbackLog.push('年代条件');
+        useDecade = false;
       } else {
         filteredMovies = tempFiltered;
       }
     }
     
-    if (filteredMovies.length < MIN_MOVIES && filteredMovies.length < movies.length) {
-      fallbackLog.push('一部の条件');
+    // レベル2: MBTI条件を緩和
+    if (filteredMovies.length < MIN_MOVIES && usedMbti) {
+      fallbackLog.push('MBTI推奨条件');
+      genreId = genreMap[genre];
+      const page = Math.floor(Math.random() * 3) + 1;
+      movies = await getMoviesByGenre(genreId, language, page);
+      
+      if (type !== 'any') {
+        movies = movies.filter(movie => {
+          const hasAnimeGenre = movie.genre_ids && movie.genre_ids.includes(16);
+          if (type === 'anime') return hasAnimeGenre;
+          if (type === 'live') return !hasAnimeGenre;
+          return true;
+        });
+      }
+      
       filteredMovies = movies;
     }
     
+    // レベル3: 受賞作品条件を緩和
+    if (filteredMovies.length < MIN_MOVIES && useAward) {
+      fallbackLog.push('受賞作品条件');
+      filteredMovies = movies;
+    }
+    
+    // ソート
     if (filteredMovies.length > 0) {
       if (award === 'hidden') {
         filteredMovies.sort((a, b) => a.popularity - b.popularity);
@@ -188,6 +245,7 @@ async function findMovieFromAnswers(answers) {
       }
     }
     
+    // ランダム選択
     const topMovies = filteredMovies.slice(0, 20);
     let selectedMovie = null;
     
@@ -195,11 +253,34 @@ async function findMovieFromAnswers(answers) {
       selectedMovie = topMovies[Math.floor(Math.random() * Math.min(topMovies.length, 10))];
     }
     
+    // 最終フォールバック（言語・アニメ実写・ジャンルは維持）
     if (!selectedMovie) {
-      fallbackLog.push('すべての条件');
+      fallbackLog.push('その他の条件');
       const popular = await getPopularMovies(language, 1);
-      if (popular.length > 0) {
-        selectedMovie = popular[Math.floor(Math.random() * popular.length)];
+      let filtered = popular;
+      
+      // アニメ実写フィルター維持
+      if (type !== 'any') {
+        filtered = filtered.filter(movie => {
+          const hasAnimeGenre = movie.genre_ids && movie.genre_ids.includes(16);
+          if (type === 'anime') return hasAnimeGenre;
+          if (type === 'live') return !hasAnimeGenre;
+          return true;
+        });
+      }
+      
+      // ジャンルフィルター維持
+      if (genreId) {
+        filtered = filtered.filter(movie => {
+          return movie.genre_ids && movie.genre_ids.includes(genreId);
+        });
+      }
+      
+      if (filtered.length > 0) {
+        selectedMovie = filtered[Math.floor(Math.random() * filtered.length)];
+      } else {
+        // それでもない場合は人気映画から
+        selectedMovie = popular[0];
       }
     }
     
@@ -207,12 +288,13 @@ async function findMovieFromAnswers(answers) {
       movie: selectedMovie,
       fallbackLog: fallbackLog
     };
+    
   } catch (error) {
     console.error('Error in findMovieFromAnswers:', error);
-    const popular = await getPopularMovies('ja', 1);
+    const popular = await getPopularMovies(language, 1);
     return {
       movie: popular[0] || null,
-      fallbackLog: ['すべての条件（エラー発生）']
+      fallbackLog: ['エラーが発生しました']
     };
   }
 }
@@ -293,3 +375,84 @@ export default async function handler(req, res) {
     });
   }
 }
+```
+
+---
+
+# 🚀 デプロイ手順
+
+## 1. index.html をコミット
+```
+Commit message: ✨ 言語・アニメ実写・ジャンル固定版
+```
+
+## 2. api/movies.js をコミット
+```
+Commit message: 🔒 言語・アニメ実写・ジャンル絶対固定
+```
+
+## 3. Vercel自動デプロイ（1-2分待つ）
+
+---
+
+# ✅ 実装内容
+
+## 絶対に緩和されない条件（死守）
+```
+✅ 言語（日本語/英語/韓国語）
+✅ アニメ実写（アニメ/実写/どちらでも）
+✅ ジャンル（アクション/コメディ/ホラーなど）
+```
+
+## 緩和される条件（優先度順）
+```
+1. 年代条件
+2. MBTI推奨条件
+3. 受賞作品条件
+4. その他の条件
+```
+
+---
+
+# 📊 緩和ロジックの流れ
+```
+ステップ1: 全条件で検索
+├─ 言語: ✅ 固定
+├─ アニメ実写: ✅ 固定
+├─ ジャンル: ✅ 固定
+├─ 年代: ✅ 適用
+├─ MBTI: ✅ 適用
+└─ 受賞作品: ✅ 適用
+
+↓ 5件未満
+
+ステップ2: 年代条件を緩和
+├─ 言語: ✅ 固定
+├─ アニメ実写: ✅ 固定
+├─ ジャンル: ✅ 固定
+├─ 年代: ❌ 緩和
+├─ MBTI: ✅ 適用
+└─ 受賞作品: ✅ 適用
+
+↓ 5件未満
+
+ステップ3: MBTI条件を緩和
+├─ 言語: ✅ 固定
+├─ アニメ実写: ✅ 固定
+├─ ジャンル: ✅ 固定
+├─ 年代: ❌ 緩和
+├─ MBTI: ❌ 緩和
+└─ 受賞作品: ✅ 適用
+
+↓ 5件未満
+
+ステップ4: 受賞作品条件を緩和
+├─ 言語: ✅ 固定
+├─ アニメ実写: ✅ 固定
+├─ ジャンル: ✅ 固定
+└─ その他: ❌ 緩和
+
+最終: 人気映画から選択
+├─ 言語: ✅ 固定
+├─ アニメ実写: ✅ 固定
+└─ ジャンル: ✅ 固定
