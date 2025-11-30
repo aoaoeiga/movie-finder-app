@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>映画診断アプリ | あなたにピッタリの映画を見つけよう</title>
-  <meta name="description" content="9つの質問に答えるだけで、あなたにピッタリの映画が見つかる！無料で使える映画診断アプリ">
+  <title>映画診断アプリ</title>
   <meta name="theme-color" content="#7c3aed">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -14,93 +13,25 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;900&display=swap');
     
-    * {
-      -webkit-tap-highlight-color: transparent;
-    }
-    
-    body {
-      font-family: 'Montserrat', sans-serif;
-      background: #0a0a0a;
-      overscroll-behavior: none;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .fade-in {
-      animation: fadeIn 0.5s ease-out;
-    }
-
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    .loading {
-      animation: pulse 1.5s ease-in-out infinite;
-    }
-
-    .cinema-bg {
-      background: linear-gradient(to bottom, #0a0a0a, #1a0a2e);
-    }
-
-    .glass {
-      background: rgba(26, 26, 26, 0.7);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(139, 92, 246, 0.3);
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
-      transition: all 0.3s ease;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px rgba(124, 58, 237, 0.4);
-    }
-
-    .card-hover {
-      transition: all 0.3s ease;
-    }
-
-    .card-hover:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 10px 40px rgba(124, 58, 237, 0.3);
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .spinner {
-      animation: spin 1s linear infinite;
-    }
-
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: #1a1a1a;
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #7c3aed;
-      border-radius: 4px;
-    }
-
-    .touch-feedback:active {
-      transform: scale(0.95);
-      opacity: 0.8;
-    }
-
-    .modal-overlay {
-      background: rgba(0, 0, 0, 0.8);
-      backdrop-filter: blur(4px);
-    }
+    * { -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Montserrat', sans-serif; background: #0a0a0a; overscroll-behavior: none; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .loading { animation: pulse 1.5s ease-in-out infinite; }
+    .cinema-bg { background: linear-gradient(to bottom, #0a0a0a, #1a0a2e); }
+    .glass { background: rgba(26, 26, 26, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(139, 92, 246, 0.3); }
+    .btn-primary { background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%); transition: all 0.3s ease; }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(124, 58, 237, 0.4); }
+    .card-hover { transition: all 0.3s ease; }
+    .card-hover:hover { transform: translateY(-4px); box-shadow: 0 10px 40px rgba(124, 58, 237, 0.3); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin 1s linear infinite; }
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: #1a1a1a; }
+    ::-webkit-scrollbar-thumb { background: #7c3aed; border-radius: 4px; }
+    .touch-feedback:active { transform: scale(0.95); opacity: 0.8; }
+    .modal-overlay { background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(4px); }
   </style>
 </head>
 <body>
@@ -131,126 +62,91 @@
       const updateDailyCount = () => {
         const today = new Date().toDateString();
         let usage = JSON.parse(localStorage.getItem('dailyUsage') || '{}');
-        
         if (usage.date !== today) {
           usage = { date: today, count: 0 };
         }
-        
         setDailyCount(usage.count);
         return usage.count;
       };
 
       const questions = [
-        {
-          id: 'type',
-          question: 'アニメ？実写？',
-          icon: '🎬',
-          options: [
-            { value: 'anime', label: 'アニメ', emoji: '🎨', desc: 'アニメーション' },
-            { value: 'live', label: '実写', emoji: '🎭', desc: 'Live Action' },
-            { value: 'any', label: 'どちらでも', emoji: '✨', desc: 'Both' }
-          ]
-        },
-        {
-          id: 'language',
-          question: '言語は？',
-          icon: '🌍',
-          options: [
-            { value: 'ja', label: '日本語', emoji: '🇯🇵' },
-            { value: 'en', label: '英語', emoji: '🇺🇸' },
-            { value: 'ko', label: '韓国語', emoji: '🇰🇷' },
-            { value: 'zh', label: '中国語', emoji: '🇨🇳' },
-            { value: 'any', label: 'どれでも', emoji: '🌐' }
-          ]
-        },
-        {
-          id: 'genre',
-          question: '好きなジャンルは？',
-          icon: '🎯',
-          options: [
-            { value: 'action', label: 'アクション', emoji: '💥' },
-            { value: 'comedy', label: 'コメディ', emoji: '😂' },
-            { value: 'horror', label: 'ホラー', emoji: '👻' },
-            { value: 'romance', label: '恋愛', emoji: '💕' },
-            { value: 'scifi', label: 'SF', emoji: '🚀' },
-            { value: 'drama', label: 'ドラマ', emoji: '🎭' },
-            { value: 'thriller', label: 'スリラー', emoji: '🔪' },
-            { value: 'fantasy', label: 'ファンタジー', emoji: '🧙' },
-            { value: 'mystery', label: 'ミステリー', emoji: '🔍' },
-            { value: 'adventure', label: '冒険', emoji: '🗺️' }
-          ]
-        },
-        {
-          id: 'award',
-          question: 'どんな作品？',
-          icon: '🏆',
-          options: [
-            { value: 'award', label: '受賞作品', emoji: '🏆', desc: '高評価' },
-            { value: 'popular', label: '人気作品', emoji: '🔥', desc: 'トレンド' },
-            { value: 'hidden', label: '隠れた名作', emoji: '💎', desc: 'マイナー' },
-            { value: 'any', label: 'どれでも', emoji: '✨', desc: 'All' }
-          ]
-        },
-        {
-          id: 'decade',
-          question: '何年代？',
-          icon: '📅',
-          options: [
-            { value: '1990s', label: '90年代以前', emoji: '📼' },
-            { value: '2000s', label: '00年代', emoji: '💿' },
-            { value: '2010s', label: '10年代', emoji: '📱' },
-            { value: '2020s', label: '20年代', emoji: '🆕' },
-            { value: 'any', label: 'どれでも', emoji: '♾️' }
-          ]
-        },
-        {
-          id: 'runtime',
-          question: '視聴時間は？',
-          icon: '⏱️',
-          options: [
-            { value: 'short', label: '短め', emoji: '⚡', desc: '90分以下' },
-            { value: 'medium', label: '普通', emoji: '⏰', desc: '90-120分' },
-            { value: 'long', label: '長め', emoji: '📺', desc: '120分以上' },
-            { value: 'any', label: '気にしない', emoji: '∞', desc: 'Any' }
-          ]
-        },
-        {
-          id: 'mood',
-          question: '今の気分は？',
-          icon: '😊',
-          options: [
-            { value: 'exciting', label: 'ワクワク', emoji: '🎉' },
-            { value: 'calm', label: 'しっとり', emoji: '🌙' },
-            { value: 'thrilling', label: 'ハラハラ', emoji: '😱' },
-            { value: 'funny', label: '笑いたい', emoji: '😂' },
-            { value: 'crying', label: '泣きたい', emoji: '😭' },
-            { value: 'inspiring', label: 'エモい', emoji: '✨' }
-          ]
-        },
-        {
-          id: 'setting',
-          question: '舞台・世界観は？',
-          icon: '🌎',
-          options: [
-            { value: 'modern', label: '現代', emoji: '🏙️' },
-            { value: 'past', label: '過去', emoji: '🏰' },
-            { value: 'future', label: '未来', emoji: '🚀' },
-            { value: 'fantasy', label: 'ファンタジー', emoji: '🧙' },
-            { value: 'any', label: 'どれでも', emoji: '🌍' }
-          ]
-        },
-        {
-          id: 'with',
-          question: '誰と見る？',
-          icon: '👥',
-          options: [
-            { value: 'alone', label: '一人', emoji: '🙋' },
-            { value: 'friends', label: '友達', emoji: '👯' },
-            { value: 'partner', label: '恋人', emoji: '💑' },
-            { value: 'family', label: '家族', emoji: '👨‍👩‍👧‍👦' },
-            { value: 'any', label: 'どれでも', emoji: '✨' }
-          ]
-        }
+        { id: 'type', question: 'アニメ？実写？', icon: '🎬', options: [
+          { value: 'anime', label: 'アニメ', emoji: '🎨' },
+          { value: 'live', label: '実写', emoji: '🎭' },
+          { value: 'any', label: 'どちらでも', emoji: '✨' }
+        ]},
+        { id: 'language', question: '言語は？', icon: '🌍', options: [
+          { value: 'ja', label: '日本語', emoji: '🇯🇵' },
+          { value: 'en', label: '英語', emoji: '🇺🇸' },
+          { value: 'ko', label: '韓国語', emoji: '🇰🇷' },
+          { value: 'any', label: 'どれでも', emoji: '🌐' }
+        ]},
+        { id: 'genre', question: '好きなジャンルは？', icon: '🎯', options: [
+          { value: 'action', label: 'アクション', emoji: '💥' },
+          { value: 'comedy', label: 'コメディ', emoji: '😂' },
+          { value: 'horror', label: 'ホラー', emoji: '👻' },
+          { value: 'romance', label: '恋愛', emoji: '💕' },
+          { value: 'scifi', label: 'SF', emoji: '🚀' },
+          { value: 'drama', label: 'ドラマ', emoji: '🎭' },
+          { value: 'thriller', label: 'スリラー', emoji: '🔪' },
+          { value: 'fantasy', label: 'ファンタジー', emoji: '🧙' }
+        ]},
+        { id: 'award', question: 'どんな作品？', icon: '🏆', options: [
+          { value: 'award', label: '受賞作品', emoji: '🏆' },
+          { value: 'popular', label: '人気作品', emoji: '🔥' },
+          { value: 'hidden', label: '隠れた名作', emoji: '💎' },
+          { value: 'any', label: 'どれでも', emoji: '✨' }
+        ]},
+        { id: 'decade', question: '何年代？', icon: '📅', options: [
+          { value: '1990s', label: '90年代以前', emoji: '📼' },
+          { value: '2000s', label: '00年代', emoji: '💿' },
+          { value: '2010s', label: '10年代', emoji: '📱' },
+          { value: '2020s', label: '20年代', emoji: '🆕' },
+          { value: 'any', label: 'どれでも', emoji: '♾️' }
+        ]},
+        { id: 'runtime', question: '視聴時間は？', icon: '⏱️', options: [
+          { value: 'short', label: '短め', emoji: '⚡' },
+          { value: 'medium', label: '普通', emoji: '⏰' },
+          { value: 'long', label: '長め', emoji: '📺' },
+          { value: 'any', label: '気にしない', emoji: '∞' }
+        ]},
+        { id: 'mood', question: '今の気分は？', icon: '😊', options: [
+          { value: 'exciting', label: 'ワクワク', emoji: '🎉' },
+          { value: 'calm', label: 'しっとり', emoji: '🌙' },
+          { value: 'thrilling', label: 'ハラハラ', emoji: '😱' },
+          { value: 'funny', label: '笑いたい', emoji: '😂' }
+        ]},
+        { id: 'setting', question: '舞台は？', icon: '🌎', options: [
+          { value: 'modern', label: '現代', emoji: '🏙️' },
+          { value: 'past', label: '過去', emoji: '🏰' },
+          { value: 'future', label: '未来', emoji: '🚀' },
+          { value: 'any', label: 'どれでも', emoji: '🌍' }
+        ]},
+        { id: 'mbti', question: 'あなたのMBTIは？', icon: '🧠', options: [
+          { value: 'INTJ', label: 'INTJ', emoji: '🔬', desc: '建築家' },
+          { value: 'INTP', label: 'INTP', emoji: '🤔', desc: '論理学者' },
+          { value: 'ENTJ', label: 'ENTJ', emoji: '👔', desc: '指揮官' },
+          { value: 'ENTP', label: 'ENTP', emoji: '💡', desc: '討論者' },
+          { value: 'INFJ', label: 'INFJ', emoji: '🌟', desc: '提唱者' },
+          { value: 'INFP', label: 'INFP', emoji: '🎨', desc: '仲介者' },
+          { value: 'ENFJ', label: 'ENFJ', emoji: '🤝', desc: '主人公' },
+          { value: 'ENFP', label: 'ENFP', emoji: '🎉', desc: '広報運動家' },
+          { value: 'ISTJ', label: 'ISTJ', emoji: '📋', desc: '管理者' },
+          { value: 'ISFJ', label: 'ISFJ', emoji: '🛡️', desc: '擁護者' },
+          { value: 'ESTJ', label: 'ESTJ', emoji: '⚖️', desc: '幹部' },
+          { value: 'ESFJ', label: 'ESFJ', emoji: '🤗', desc: '領事官' },
+          { value: 'ISTP', label: 'ISTP', emoji: '🔧', desc: '巨匠' },
+          { value: 'ISFP', label: 'ISFP', emoji: '🎭', desc: '冒険家' },
+          { value: 'ESTP', label: 'ESTP', emoji: '⚡', desc: '起業家' },
+          { value: 'ESFP', label: 'ESFP', emoji: '🎪', desc: 'エンターテイナー' },
+          { value: 'unknown', label: '分からない', emoji: '❓', desc: 'スキップ' }
+        ]},
+        { id: 'with', question: '誰と見る？', icon: '👥', options: [
+          { value: 'alone', label: '一人', emoji: '🙋' },
+          { value: 'friends', label: '友達', emoji: '👯' },
+          { value: 'partner', label: '恋人', emoji: '💑' },
+          { value: 'family', label: '家族', emoji: '👨‍👩‍👧‍👦' }
+        ]}
       ];
 
       const handleAnswer = (questionId, value) => {
@@ -262,27 +158,27 @@
 
       const findMovie = async () => {
         const currentCount = updateDailyCount();
-        
         if (currentCount >= 3) {
           alert('本日の診断回数が上限(3回)に達しました。\n明日0時にリセットされます 🕐');
           return;
         }
-
         setLoading(true);
-        
         try {
           const response = await fetch('/api/movies', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ answers })
           });
-          
           const data = await response.json();
-          
           if (data.error) {
             alert(data.error);
             setLoading(false);
             return;
+          }
+          
+          // 条件緩和通知
+          if (data.fallback) {
+            alert(`📢 お知らせ\n\n${data.fallbackReason}\n\nあなたにおすすめの映画を見つけました！`);
           }
           
           const today = new Date().toDateString();
@@ -290,14 +186,11 @@
           usage = { date: today, count: currentCount + 1 };
           localStorage.setItem('dailyUsage', JSON.stringify(usage));
           setDailyCount(usage.count);
-          
           const newHistory = [data, ...history].slice(0, 50);
           setHistory(newHistory);
           localStorage.setItem('history', JSON.stringify(newHistory));
-          
           setMovie(data);
           setView('result');
-          
         } catch (error) {
           alert('エラーが発生しました: ' + error.message);
         } finally {
@@ -307,7 +200,6 @@
 
       const toggleFavorite = (movieToSave) => {
         const isFavorite = favorites.some(f => f.title === movieToSave.title);
-        
         if (isFavorite) {
           const newFavorites = favorites.filter(f => f.title !== movieToSave.title);
           setFavorites(newFavorites);
@@ -322,7 +214,6 @@
       const shareMovie = (platform) => {
         const text = `私にピッタリの映画は「${movie.title}」でした！🎬\n\nあなたも診断してみて👇`;
         const url = window.location.href.split('?')[0];
-        
         if (platform === 'twitter') {
           window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`, '_blank');
         } else if (platform === 'line') {
@@ -342,7 +233,7 @@
 
       const startQuiz = () => {
         if (dailyCount >= 3) {
-          alert('本日の診断回数が上限(3回)に達しました。\n明日0時にリセットされます 🕐');
+          alert('本日の診断回数が上限(3回)に達しました。');
           return;
         }
         setView('quiz');
@@ -364,17 +255,17 @@
                   MOVIE FINDER
                 </h1>
                 <p className="text-purple-300 text-lg md:text-xl">
-                  9つの質問であなたにピッタリの映画を見つけよう
+                  10の質問であなたにピッタリの映画を見つけよう
+                </p>
+                <p className="text-purple-400 text-sm mt-2">
+                  🧠 MBTI対応！あなたの性格タイプから診断
                 </p>
               </div>
-
               <div className="glass rounded-2xl p-6 mb-8 fade-in">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-purple-400 text-sm mb-1">本日の診断回数</p>
-                    <p className="text-white text-3xl font-black">
-                      {dailyCount} <span className="text-lg text-gray-400">/ 3回</span>
-                    </p>
+                    <p className="text-white text-3xl font-black">{dailyCount} <span className="text-lg text-gray-400">/ 3回</span></p>
                   </div>
                   <div className="text-5xl">{dailyCount >= 3 ? '🔒' : '✨'}</div>
                 </div>
@@ -382,43 +273,25 @@
                   <p className="text-gray-400 text-sm mt-3">明日0時にリセットされます</p>
                 )}
               </div>
-
-              <button
-                onClick={startQuiz}
-                disabled={dailyCount >= 3}
-                className={`w-full btn-primary text-white py-6 rounded-2xl font-black text-xl mb-6 shadow-2xl ${dailyCount >= 3 ? 'opacity-50 cursor-not-allowed' : 'touch-feedback'}`}
-              >
+              <button onClick={startQuiz} disabled={dailyCount >= 3} className={`w-full btn-primary text-white py-6 rounded-2xl font-black text-xl mb-6 shadow-2xl ${dailyCount >= 3 ? 'opacity-50 cursor-not-allowed' : 'touch-feedback'}`}>
                 {dailyCount >= 3 ? '本日の診断は終了しました' : '診断を始める 🎯'}
               </button>
-
               <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={() => setView('favorites')}
-                  className="glass p-6 rounded-xl text-center touch-feedback card-hover"
-                >
+                <button onClick={() => setView('favorites')} className="glass p-6 rounded-xl text-center touch-feedback card-hover">
                   <div className="text-4xl mb-2">⭐</div>
                   <p className="text-white font-bold">お気に入り</p>
                   <p className="text-purple-400 text-sm">{favorites.length}件</p>
                 </button>
-                
-                <button
-                  onClick={() => setView('history')}
-                  className="glass p-6 rounded-xl text-center touch-feedback card-hover"
-                >
+                <button onClick={() => setView('history')} className="glass p-6 rounded-xl text-center touch-feedback card-hover">
                   <div className="text-4xl mb-2">📜</div>
                   <p className="text-white font-bold">履歴</p>
                   <p className="text-purple-400 text-sm">{history.length}件</p>
                 </button>
               </div>
-
-              <button
-                onClick={() => setShowGuide(true)}
-                className="w-full glass p-4 rounded-xl mt-6 text-purple-400 font-bold touch-feedback"
-              >
+              <button onClick={() => setShowGuide(true)} className="w-full glass p-4 rounded-xl mt-6 text-purple-400 font-bold touch-feedback">
                 📖 使い方ガイド
               </button>
             </div>
-
             {showGuide && (
               <div className="fixed inset-0 modal-overlay flex items-center justify-center p-4 z-50" onClick={() => setShowGuide(false)}>
                 <div className="glass rounded-2xl p-6 max-w-md w-full" onClick={e => e.stopPropagation()}>
@@ -433,17 +306,14 @@
                     </div>
                     <div>
                       <p className="font-bold text-purple-400 mb-2">2. 質問に答える</p>
-                      <p className="text-sm">9つの質問に直感で答えてください</p>
+                      <p className="text-sm">10の質問に直感で答えてください</p>
                     </div>
                     <div>
                       <p className="font-bold text-purple-400 mb-2">3. 映画を発見</p>
                       <p className="text-sm">あなたにピッタリの映画が表示されます！</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setShowGuide(false)}
-                    className="w-full btn-primary text-white py-3 rounded-xl font-bold mt-6"
-                  >
+                  <button onClick={() => setShowGuide(false)} className="w-full btn-primary text-white py-3 rounded-xl font-bold mt-6">
                     閉じる
                   </button>
                 </div>
@@ -463,57 +333,28 @@
                   <span>{Math.round(progress)}%</span>
                 </div>
                 <div className="w-full bg-gray-900 rounded-full h-3 overflow-hidden border border-purple-500/30">
-                  <div
-                    className="h-full bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-300 rounded-full"
-                    style={{ width: `${progress}%` }}
-                  ></div>
+                  <div className="h-full bg-gradient-to-r from-purple-600 to-pink-600 transition-all duration-300 rounded-full" style={{ width: `${progress}%` }}></div>
                 </div>
               </div>
-
               <div className="glass rounded-3xl p-6 md:p-10 fade-in">
                 <div className="text-center mb-8">
                   <div className="text-6xl mb-4">{currentQuestion.icon}</div>
-                  <h2 className="text-3xl md:text-4xl font-black text-white mb-2">
-                    {currentQuestion.question}
-                  </h2>
+                  <h2 className="text-3xl md:text-4xl font-black text-white mb-2">{currentQuestion.question}</h2>
                   <p className="text-purple-400 text-sm">タップして選択してください</p>
                 </div>
-
                 <div className={`grid gap-3 mb-6 ${currentQuestion.options.length > 6 ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-1 md:grid-cols-2'}`}>
                   {currentQuestion.options.map(option => (
-                    <button
-                      key={option.value}
-                      onClick={() => handleAnswer(currentQuestion.id, option.value)}
-                      className={`p-5 rounded-xl font-bold transition-all touch-feedback ${
-                        answers[currentQuestion.id] === option.value
-                          ? 'bg-gradient-to-br from-purple-600 to-pink-600 text-white scale-105 shadow-xl'
-                          : 'glass text-white hover:bg-purple-900/30'
-                      }`}
-                    >
+                    <button key={option.value} onClick={() => handleAnswer(currentQuestion.id, option.value)}
+                      className={`p-5 rounded-xl font-bold transition-all touch-feedback ${answers[currentQuestion.id] === option.value ? 'bg-gradient-to-br from-purple-600 to-pink-600 text-white scale-105 shadow-xl' : 'glass text-white hover:bg-purple-900/30'}`}>
                       <div className="text-4xl mb-2">{option.emoji}</div>
                       <div className="text-lg">{option.label}</div>
                       {option.desc && <div className="text-xs opacity-80 mt-1">{option.desc}</div>}
                     </button>
                   ))}
                 </div>
-
                 <div className="flex gap-3">
-                  <button
-                    onClick={reset}
-                    className="flex-1 glass text-purple-400 py-4 rounded-xl font-bold touch-feedback"
-                  >
-                    ← ホームに戻る
-                  </button>
-                  
-                  {allAnswered && (
-                    <button
-                      onClick={findMovie}
-                      className="flex-2 btn-primary text-white py-4 rounded-xl font-black text-lg touch-feedback flex items-center justify-center gap-2"
-                    >
-                      <span>映画を探す</span>
-                      <span className="text-2xl">🎬</span>
-                    </button>
-                  )}
+                  <button onClick={reset} className="flex-1 glass text-purple-400 py-4 rounded-xl font-bold touch-feedback">← ホームに戻る</button>
+                  {allAnswered && <button onClick={findMovie} className="flex-2 btn-primary text-white py-4 rounded-xl font-black text-lg touch-feedback flex items-center justify-center gap-2"><span>映画を探す</span><span className="text-2xl">🎬</span></button>}
                 </div>
               </div>
             </div>
@@ -526,12 +367,8 @@
           <div className="min-h-screen cinema-bg flex items-center justify-center p-4">
             <div className="text-center fade-in">
               <div className="w-32 h-32 border-8 border-purple-900 border-t-purple-500 rounded-full spinner mx-auto mb-8"></div>
-              <h2 className="text-3xl font-black text-purple-400 mb-4 loading">
-                NOW LOADING
-              </h2>
-              <p className="text-purple-300">
-                あなたにピッタリの映画を探しています...
-              </p>
+              <h2 className="text-3xl font-black text-purple-400 mb-4 loading">NOW LOADING</h2>
+              <p className="text-purple-300">あなたにピッタリの映画を探しています...</p>
             </div>
           </div>
         );
@@ -539,7 +376,6 @@
 
       if (view === 'result' && movie) {
         const isFavorite = favorites.some(f => f.title === movie.title);
-        
         return (
           <div className="min-h-screen cinema-bg p-4">
             <div className="max-w-4xl mx-auto pt-8 pb-24 fade-in">
@@ -548,30 +384,18 @@
                   <h2 className="text-2xl font-black text-white">YOUR MOVIE 🎬</h2>
                   <p className="text-purple-300 text-sm">あなたにピッタリの映画</p>
                 </div>
-
                 <div className="p-6">
                   <div className="grid md:grid-cols-5 gap-6">
                     <div className="md:col-span-2">
                       <div className="relative">
-                        <img
-                          src={movie.poster}
-                          alt={movie.title}
-                          className="w-full rounded-xl shadow-2xl"
-                        />
-                        <button
-                          onClick={() => toggleFavorite(movie)}
-                          className="absolute top-4 right-4 w-12 h-12 rounded-full glass flex items-center justify-center text-2xl touch-feedback"
-                        >
+                        <img src={movie.poster} alt={movie.title} className="w-full rounded-xl shadow-2xl" />
+                        <button onClick={() => toggleFavorite(movie)} className="absolute top-4 right-4 w-12 h-12 rounded-full glass flex items-center justify-center text-2xl touch-feedback">
                           {isFavorite ? '⭐' : '☆'}
                         </button>
                       </div>
                     </div>
-
                     <div className="md:col-span-3">
-                      <h3 className="text-3xl md:text-4xl font-black text-white mb-4">
-                        {movie.title}
-                      </h3>
-
+                      <h3 className="text-3xl md:text-4xl font-black text-white mb-4">{movie.title}</h3>
                       <div className="grid grid-cols-3 gap-3 mb-6">
                         <div className="glass p-4 rounded-xl text-center">
                           <p className="text-purple-400 text-xs mb-1">公開年</p>
@@ -586,60 +410,35 @@
                           <p className="text-white text-2xl font-black">{movie.runtime}分</p>
                         </div>
                       </div>
-
                       {movie.genres && (
                         <div className="mb-4">
-                          <span className="glass px-4 py-2 rounded-full text-purple-300 text-sm inline-block">
-                            {movie.genres}
-                          </span>
+                          <span className="glass px-4 py-2 rounded-full text-purple-300 text-sm inline-block">{movie.genres}</span>
                         </div>
                       )}
-
                       <div className="glass p-4 rounded-xl mb-6">
-                        <p className="text-gray-300 text-sm leading-relaxed">
-                          {movie.desc}
-                        </p>
+                        <p className="text-gray-300 text-sm leading-relaxed">{movie.desc}</p>
                       </div>
-
                       <div className="grid grid-cols-3 gap-2 mb-4">
-                        <button
-                          onClick={() => shareMovie('twitter')}
-                          className="glass p-3 rounded-xl text-center touch-feedback hover:bg-blue-500/20"
-                        >
+                        <button onClick={() => shareMovie('twitter')} className="glass p-3 rounded-xl text-center touch-feedback hover:bg-blue-500/20">
                           <div className="text-2xl mb-1">🐦</div>
                           <p className="text-xs text-white font-bold">Twitter</p>
                         </button>
-                        <button
-                          onClick={() => shareMovie('line')}
-                          className="glass p-3 rounded-xl text-center touch-feedback hover:bg-green-500/20"
-                        >
+                        <button onClick={() => shareMovie('line')} className="glass p-3 rounded-xl text-center touch-feedback hover:bg-green-500/20">
                           <div className="text-2xl mb-1">💬</div>
                           <p className="text-xs text-white font-bold">LINE</p>
                         </button>
-                        <button
-                          onClick={() => shareMovie('copy')}
-                          className="glass p-3 rounded-xl text-center touch-feedback hover:bg-purple-500/20"
-                        >
+                        <button onClick={() => shareMovie('copy')} className="glass p-3 rounded-xl text-center touch-feedback hover:bg-purple-500/20">
                           <div className="text-2xl mb-1">📋</div>
                           <p className="text-xs text-white font-bold">コピー</p>
                         </button>
                       </div>
-
-                      <button
-                        onClick={reset}
-                        className="w-full btn-primary text-white py-4 rounded-xl font-black touch-feedback"
-                      >
-                        もう一度診断する
-                      </button>
+                      <button onClick={reset} className="w-full btn-primary text-white py-4 rounded-xl font-black touch-feedback">もう一度診断する</button>
                     </div>
                   </div>
                 </div>
               </div>
-
               <div className="glass rounded-xl p-4 mt-6 text-center">
-                <p className="text-purple-400 text-sm">
-                  本日の診断回数: {dailyCount} / 3回
-                </p>
+                <p className="text-purple-400 text-sm">本日の診断回数: {dailyCount} / 3回</p>
               </div>
             </div>
           </div>
@@ -652,50 +451,28 @@
             <div className="max-w-4xl mx-auto pt-8 pb-24">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-3xl font-black text-white">⭐ お気に入り</h2>
-                <button
-                  onClick={() => setView('home')}
-                  className="glass px-4 py-2 rounded-xl text-purple-400 font-bold touch-feedback"
-                >
-                  ← ホーム
-                </button>
+                <button onClick={() => setView('home')} className="glass px-4 py-2 rounded-xl text-purple-400 font-bold touch-feedback">← ホーム</button>
               </div>
-
               {favorites.length === 0 ? (
                 <div className="glass rounded-2xl p-12 text-center">
                   <div className="text-6xl mb-4">📭</div>
                   <p className="text-gray-400 text-lg">お気に入りがありません</p>
-                  <button
-                    onClick={() => setView('home')}
-                    className="btn-primary text-white px-6 py-3 rounded-xl font-bold mt-6 touch-feedback"
-                  >
-                    診断を始める
-                  </button>
+                  <button onClick={() => setView('home')} className="btn-primary text-white px-6 py-3 rounded-xl font-bold mt-6 touch-feedback">診断を始める</button>
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 gap-4">
                   {favorites.map((fav, index) => (
                     <div key={index} className="glass rounded-xl p-4 card-hover">
                       <div className="flex gap-4">
-                        <img
-                          src={fav.poster}
-                          alt={fav.title}
-                          className="w-24 h-36 object-cover rounded-lg"
-                        />
+                        <img src={fav.poster} alt={fav.title} className="w-24 h-36 object-cover rounded-lg" />
                         <div className="flex-1">
-                          <h3 className="text-white font-bold text-lg mb-2 line-clamp-2">
-                            {fav.title}
-                          </h3>
+                          <h3 className="text-white font-bold text-lg mb-2 line-clamp-2">{fav.title}</h3>
                           <div className="flex gap-2 text-sm mb-2">
                             <span className="text-purple-400">{fav.year}</span>
                             <span className="text-gray-400">•</span>
                             <span className="text-yellow-400">⭐ {fav.rating}</span>
                           </div>
-                          <button
-                            onClick={() => toggleFavorite(fav)}
-                            className="text-purple-400 text-sm font-bold touch-feedback"
-                          >
-                            削除 ✕
-                          </button>
+                          <button onClick={() => toggleFavorite(fav)} className="text-purple-400 text-sm font-bold touch-feedback">削除 ✕</button>
                         </div>
                       </div>
                     </div>
@@ -713,39 +490,22 @@
             <div className="max-w-4xl mx-auto pt-8 pb-24">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-3xl font-black text-white">📜 履歴</h2>
-                <button
-                  onClick={() => setView('home')}
-                  className="glass px-4 py-2 rounded-xl text-purple-400 font-bold touch-feedback"
-                >
-                  ← ホーム
-                </button>
+                <button onClick={() => setView('home')} className="glass px-4 py-2 rounded-xl text-purple-400 font-bold touch-feedback">← ホーム</button>
               </div>
-
               {history.length === 0 ? (
                 <div className="glass rounded-2xl p-12 text-center">
                   <div className="text-6xl mb-4">📭</div>
                   <p className="text-gray-400 text-lg">履歴がありません</p>
-                  <button
-                    onClick={() => setView('home')}
-                    className="btn-primary text-white px-6 py-3 rounded-xl font-bold mt-6 touch-feedback"
-                  >
-                    診断を始める
-                  </button>
+                  <button onClick={() => setView('home')} className="btn-primary text-white px-6 py-3 rounded-xl font-bold mt-6 touch-feedback">診断を始める</button>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {history.map((item, index) => (
                     <div key={index} className="glass rounded-xl p-4 card-hover">
                       <div className="flex gap-4">
-                        <img
-                          src={item.poster}
-                          alt={item.title}
-                          className="w-24 h-36 object-cover rounded-lg"
-                        />
+                        <img src={item.poster} alt={item.title} className="w-24 h-36 object-cover rounded-lg" />
                         <div className="flex-1">
-                          <h3 className="text-white font-bold text-lg mb-2">
-                            {item.title}
-                          </h3>
+                          <h3 className="text-white font-bold text-lg mb-2">{item.title}</h3>
                           <div className="flex gap-2 text-sm mb-3">
                             <span className="text-purple-400">{item.year}</span>
                             <span className="text-gray-400">•</span>
@@ -753,9 +513,7 @@
                             <span className="text-gray-400">•</span>
                             <span className="text-gray-400">{item.runtime}分</span>
                           </div>
-                          <p className="text-gray-400 text-sm line-clamp-2">
-                            {item.desc}
-                          </p>
+                          <p className="text-gray-400 text-sm line-clamp-2">{item.desc}</p>
                         </div>
                       </div>
                     </div>
