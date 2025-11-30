@@ -180,7 +180,6 @@
             return;
           }
           
-          // 条件緩和通知
           if (data.fallbackLog && data.fallbackLog.length > 0) {
             const relaxedConditions = data.fallbackLog.join('\n• ');
             alert(`📢 条件を調整しました\n\n以下の条件を緩和しました：\n• ${relaxedConditions}\n\nあなたにおすすめの映画を見つけました！`);
